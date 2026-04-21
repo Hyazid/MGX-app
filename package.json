@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Gestion Bons de Commande & Inventaire — Moyens Généraux",
   "main": "electron/main.js",
+  "author": "Hyazid",
  
 "scripts": {
   "dev:react":    "vite",
@@ -11,7 +12,7 @@
   "build:react":  "vite build",
   "build":        "npm run build:react && electron-builder",
   "rebuild":      "electron-rebuild -f -w better-sqlite3",
-  "postinstall":  "electron-rebuild -f -w better-sqlite3"
+  "postinstall": "electron-builder install-app-deps"
 },
   
 "build": {
