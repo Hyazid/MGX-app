@@ -1,0 +1,26 @@
+# Dépendances
+node_modules/
+
+# Build outputs
+dist/
+dist-app/
+
+# Base de données locale (chaque utilisateur aura la sienne)
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+
+# Electron builder cache
+.cache/
