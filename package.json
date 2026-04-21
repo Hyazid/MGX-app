@@ -4,57 +4,54 @@
   "description": "Gestion Bons de Commande & Inventaire — Moyens Généraux",
   "main": "electron/main.js",
   "author": "Hyazid",
- 
-"scripts": {
-  "dev:react":    "vite",
-  "dev:electron": "electron .",
-  "dev": "concurrently -k -s first \"vite\" \"wait-on tcp:5173 && electron .\"",
-  "build:react":  "vite build",
-  "build":        "npm run build:react && electron-builder",
-  "rebuild":      "electron-rebuild -f -w better-sqlite3",
-  "postinstall": "electron-builder install-app-deps"
-},
-  
-"build": {
-  "appId": "dz.entreprise.moyens-generaux",
-  "productName": "Moyens Généraux",
-  "copyright": "Copyright © 2025",
-  "directories": {
-    "output": "dist-app"
+  "scripts": {
+    "dev:react":    "vite",
+    "dev:electron": "electron .",
+    "dev": "concurrently -k -s first \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "build:react":  "vite build",
+    "build":        "npm run build:react && electron-builder --linux --win",
+    "build:linux":  "npm run build:react && electron-builder --linux",
+    "build:win":    "npm run build:react && electron-builder --win",
+    "rebuild":      "electron-rebuild -f -w better-sqlite3",
+    "postinstall":  "electron-builder install-app-deps"
   },
-  "files": [
-    "electron/**/*",
-    "dist/**/*",
-    "assets/**/*",
-    "package.json"
-  ],
-  "extraResources": [],
-  "asar": true,
-  "win": {
-    "target": [
-      { "target": "nsis", "arch": ["x64", "ia32"] }
+  "build": {
+    "appId": "dz.entreprise.moyens-generaux",
+    "productName": "Moyens Generaux",
+    "copyright": "Copyright © 2025 Hyazid",
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "assets/**/*",
+      "package.json"
     ],
-    "icon": "assets/icon.ico"
+    "extraResources": [],
+    "asar": true,
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.png",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Moyens Generaux",
+      "deleteAppDataOnUninstall": false
+    }
   },
-  "linux": {
-    "target": "AppImage",
-    "icon": "assets/icon.png"
-  },
-  "mac": {
-    "target": "dmg",
-    "icon": "assets/icon.icns"
-  },
-  "nsis": {
-    "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
-    "createDesktopShortcut": true,
-    "createStartMenuShortcut": true,
-    "shortcutName": "Moyens Généraux",
-    "installerIcon": "assets/icon.ico",
-    "installerHeaderIcon": "assets/icon.ico",
-    "deleteAppDataOnUninstall": false
-  }
-},
   "devDependencies": {
     "@electron/rebuild": "^3.6.0",
     "@vitejs/plugin-react": "^4.0.0",
