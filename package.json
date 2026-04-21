@@ -31,7 +31,7 @@
   "asar": true,
   "win": {
     "target": [
-      { "target": "nsis", "arch": ["x64"] }
+      { "target": "nsis", "arch": ["x64", "ia32"] }
     ],
     "icon": "assets/icon.ico"
   },
