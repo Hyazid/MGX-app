@@ -19,6 +19,7 @@
     "appId": "dz.entreprise.moyens-generaux",
     "productName": "Moyens Generaux",
     "copyright": "Copyright © 2025 Hyazid",
+
     "directories": {
       "output": "dist-app"
     },
@@ -30,6 +31,10 @@
     ],
     "extraResources": [],
     "asar": true,
+    "asarUnpack": [
+    "**/*.node",
+    "**/better-sqlite3/**"
+  ],
     "win": {
       "target": [
         { "target": "nsis", "arch": ["x64"] }
@@ -50,6 +55,10 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Moyens Generaux",
       "deleteAppDataOnUninstall": false
+    },
+    "publish": {
+    "provider": "github",
+    "releaseType": "release"
     }
   },
   "devDependencies": {
