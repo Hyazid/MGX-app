@@ -1,9 +1,9 @@
-// electron/main.js
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const isDev = !app.isPackaged
 
 let mainWindow
+let dbInitialized = false
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -29,7 +29,6 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show())
 }
 
-// Charge un handler seulement s'il existe, sinon l'ignore silencieusement
 function safeRegister(modulePath) {
   try {
     const mod = require(modulePath)
@@ -38,22 +37,30 @@ function safeRegister(modulePath) {
       console.log(`[IPC] ✅ ${path.basename(modulePath)} chargé`)
     }
   } catch (e) {
-    console.warn(`[IPC] ⚠️  ${path.basename(modulePath)} ignoré (fichier manquant ou erreur)`)
-    console.warn(`       → ${e.message}`)
+    console.warn(`[IPC] ⚠️  ${path.basename(modulePath)} ignoré : ${e.message}`)
   }
 }
 
 app.whenReady().then(() => {
-  // 1. Init DB (avec try/catch pour ne pas bloquer si db.js incomplet)
+  // ── 1. Init DB — OBLIGATOIRE, pas de try/catch global ────────
   try {
     const { initDB } = require('./database/db')
     initDB()
+    dbInitialized = true
     console.log('[APP] ✅ Base de données initialisée')
   } catch (e) {
-    console.warn('[APP] ⚠️  DB ignorée :', e.message)
+    // Affiche l'erreur complète pour diagnostiquer
+    console.error('[APP] ❌ Erreur DB critique :', e.message)
+    console.error(e.stack)
+    // L'app continue mais les IPC retourneront une erreur claire
   }
 
-  // 2. Enregistrer les handlers IPC disponibles
+  // ── 2. IPC handlers ──────────────────────────────────────────
+  // Handler global pour informer le renderer si DB non dispo
+  if (!dbInitialized) {
+    ipcMain.handle('db:status', () => ({ ok: false, error: 'Base de données non initialisée' }))
+  }
+
   safeRegister('./database/queries/users')
   safeRegister('./database/queries/bda')
   safeRegister('./database/queries/bc')
@@ -65,7 +72,7 @@ app.whenReady().then(() => {
   safeRegister('./database/queries/articles')
   safeRegister('./database/queries/rapports')
 
-  // 3. Créer la fenêtre — toujours, quoi qu'il arrive
+  // ── 3. Fenêtre ───────────────────────────────────────────────
   createWindow()
 
   app.on('activate', () => {

@@ -10,8 +10,8 @@
     "dev": "concurrently -k -s first \"vite\" \"wait-on tcp:5173 && electron .\"",
     "build:react":  "vite build",
     "build":        "npm run build:react && electron-builder --linux --win",
-    "build:linux":  "npm run build:react && electron-builder --linux",
-    "build:win":    "npm run build:react && electron-builder --win",
+    "build:linux":  "npm run build:react && electron-builder --linux --publish never",
+    "build:win":    "npm run build:react && electron-builder --win --publish never",
     "rebuild":      "electron-rebuild -f -w better-sqlite3",
     "postinstall":  "electron-builder install-app-deps"
   },
@@ -19,7 +19,6 @@
     "appId": "dz.entreprise.moyens-generaux",
     "productName": "Moyens Generaux",
     "copyright": "Copyright © 2025 Hyazid",
-
     "directories": {
       "output": "dist-app"
     },
@@ -31,10 +30,6 @@
     ],
     "extraResources": [],
     "asar": true,
-    "asarUnpack": [
-    "**/*.node",
-    "**/better-sqlite3/**"
-  ],
     "win": {
       "target": [
         { "target": "nsis", "arch": ["x64"] }
@@ -55,10 +50,6 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Moyens Generaux",
       "deleteAppDataOnUninstall": false
-    },
-    "publish": {
-    "provider": "github",
-    "releaseType": "release"
     }
   },
   "devDependencies": {
