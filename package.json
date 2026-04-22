@@ -30,6 +30,9 @@
     ],
     "extraResources": [],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
     "win": {
       "target": [
         { "target": "nsis", "arch": ["x64"] }
