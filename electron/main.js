@@ -1,33 +1,53 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const fs   = require('fs')
+const os   = require('os')
 
 const isDev = !app.isPackaged
 
-// ── Logger dans un fichier (visible même sans terminal) ──────
-function setupLogger() {
-  const logDir  = app.getPath('userData')
-  const logFile = path.join(logDir, 'debug.log')
-  const stream  = fs.createWriteStream(logFile, { flags: 'w' })
+// ── Log immédiat sur le Bureau Windows ───────────────────────
+// Écrit sur le Bureau ET dans temp, avant même app.whenReady()
+const LOG_PATHS = [
+  path.join(os.homedir(), 'Desktop', 'moyens-generaux-debug.log'),
+  path.join(os.tmpdir(), 'moyens-generaux-debug.log'),
+]
 
-  const log = (...args) => {
-    const line = `[${new Date().toISOString()}] ${args.join(' ')}\n`
-    stream.write(line)
-    console.log(...args)
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ${args.join(' ')}\n`
+  process.stdout.write(line)
+  for (const p of LOG_PATHS) {
+    try { fs.appendFileSync(p, line) } catch (_) {}
   }
-  return log
 }
 
-let log
+// Premier log IMMÉDIAT
+log('=== PROCESS STARTED ===')
+log(`platform: ${process.platform} arch: ${process.arch}`)
+log(`node: ${process.versions.node}`)
+log(`electron: ${process.versions.electron}`)
+log(`__dirname: ${__dirname}`)
+log(`isPackaged: ${app.isPackaged}`)
+
 let mainWindow
 let dbInitialized = false
 
+// ── Test better-sqlite3 immédiatement ────────────────────────
+try {
+  const Database = require('better-sqlite3')
+  log('✅ better-sqlite3 loaded OK')
+} catch (e) {
+  log(`❌ better-sqlite3 FAILED: ${e.message}`)
+}
+
 function createWindow() {
+  log('createWindow() called')
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 600,
+    backgroundColor: '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -40,56 +60,52 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    // Log tous les chemins possibles pour diagnostiquer
-    const paths = {
-      __dirname,
-      appPath:       app.getAppPath(),
-      resourcesPath: process.resourcesPath,
-      userData:      app.getPath('userData'),
-    }
-    log('=== PATHS ===')
-    Object.entries(paths).forEach(([k, v]) => log(`  ${k}: ${v}`))
+    const appPath = app.getAppPath()
+    log(`app.getAppPath(): ${appPath}`)
 
-    // Essaie les chemins dans l'ordre jusqu'à trouver index.html
+    // Tous les candidats possibles
     const candidates = [
+      path.join(appPath, 'dist', 'index.html'),
       path.join(__dirname, '..', 'dist', 'index.html'),
-      path.join(app.getAppPath(), 'dist', 'index.html'),
       path.join(process.resourcesPath, 'app', 'dist', 'index.html'),
       path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'),
     ]
 
-    log('=== SEARCHING index.html ===')
     let found = null
     for (const c of candidates) {
-      const exists = fs.existsSync(c)
-      log(`  ${exists ? '✅' : '❌'} ${c}`)
+      let exists = false
+      try { exists = fs.existsSync(c) } catch (_) {}
+      log(`${exists ? '✅' : '❌'} ${c}`)
       if (exists && !found) found = c
     }
 
     if (found) {
-      log(`Loading: ${found}`)
+      log(`→ Loading: ${found}`)
       mainWindow.loadFile(found)
     } else {
-      log('❌ index.html NOT FOUND in any candidate path!')
-      // Ouvre devtools pour voir l'erreur
-      mainWindow.webContents.openDevTools()
-      mainWindow.loadURL(`data:text/html,<h1>ERROR: index.html not found</h1><pre>${candidates.join('\n')}</pre>`)
+      log('❌ index.html NOT FOUND — showing error page')
+      mainWindow.loadURL(
+        'data:text/html;charset=utf-8,' +
+        encodeURIComponent(
+          `<html><body style="font-family:monospace;padding:20px;background:#1e1e1e;color:#fff">
+          <h2 style="color:#f87171">❌ index.html introuvable</h2>
+          <p>Chemins testés :</p>
+          <ul>${candidates.map(c => `<li>${c}</li>`).join('')}</ul>
+          <p>Voir le log sur le Bureau : <b>moyens-generaux-debug.log</b></p>
+          </body></html>`
+        )
+      )
     }
   }
 
-  // Events pour diagnostiquer
-  mainWindow.webContents.on('did-finish-load', () => log('✅ Page loaded successfully'))
-  mainWindow.webContents.on('did-fail-load', (e, code, desc, url) => {
+  mainWindow.webContents.on('did-finish-load', () => log('✅ Page loaded'))
+  mainWindow.webContents.on('did-fail-load', (_, code, desc, url) => {
     log(`❌ did-fail-load: ${code} ${desc} ${url}`)
-    if (!isDev) mainWindow.webContents.openDevTools()
+    mainWindow.webContents.openDevTools()
   })
-  mainWindow.webContents.on('render-process-gone', (e, details) => {
-    log(`❌ render-process-gone: ${JSON.stringify(details)}`)
-  })
-  mainWindow.webContents.on('crashed', () => log('❌ CRASHED'))
 
   mainWindow.once('ready-to-show', () => {
-    log('Window ready-to-show')
+    log('ready-to-show → showing window')
     mainWindow.show()
   })
 }
@@ -99,22 +115,20 @@ function safeRegister(modulePath) {
     const mod = require(modulePath)
     if (mod && typeof mod.register === 'function') {
       mod.register(ipcMain)
-      log(`[IPC] ✅ ${path.basename(modulePath)} chargé`)
+      log(`[IPC] ✅ ${path.basename(modulePath)}`)
     }
   } catch (e) {
-    log(`[IPC] ❌ ${path.basename(modulePath)} : ${e.message}`)
+    log(`[IPC] ❌ ${path.basename(modulePath)}: ${e.message}`)
   }
 }
 
 app.whenReady().then(() => {
-  log = setupLogger()
-  log('=== APP STARTING ===')
-  log(`isDev: ${isDev}`)
-  log(`platform: ${process.platform}`)
-  log(`electron: ${process.versions.electron}`)
-  log(`node: ${process.versions.node}`)
+  log('=== app.whenReady() ===')
+  log(`userData: ${app.getPath('userData')}`)
 
-  // Init DB
+  // Aussi écrire dans userData maintenant qu'on peut
+  LOG_PATHS.push(path.join(app.getPath('userData'), 'debug.log'))
+
   try {
     const { initDB } = require('./database/db')
     initDB()
@@ -141,8 +155,21 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch(e => {
+  log(`❌ app.whenReady() REJECTED: ${e.message}`)
+  log(e.stack)
 })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Capture toutes les erreurs non gérées
+process.on('uncaughtException', (e) => {
+  log(`❌ uncaughtException: ${e.message}`)
+  log(e.stack)
+})
+
+process.on('unhandledRejection', (e) => {
+  log(`❌ unhandledRejection: ${e}`)
 })
