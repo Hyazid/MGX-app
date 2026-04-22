@@ -1,0 +1,143 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (ex: v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_cmd: build:win
+            artifact: '*.exe'
+          - os: ubuntu-22.04
+            build_cmd: build:linux
+            artifact: '*.AppImage'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── 2. Node.js 18 ───────────────────────────────────────
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      # ── 3. Dépendances système Linux ────────────────────────
+      - name: Install Linux system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            libgtk-3-dev libnotify-dev libnss3 \
+            libxss1 libasound2 libxtst6 xvfb \
+            libgconf-2-4 libgbm-dev
+
+      # ── 4. npm install ──────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 5. Rebuild better-sqlite3 pour Electron ─────────────
+      - name: Rebuild native modules
+        run: npm run rebuild
+
+      # ── 6. Build ────────────────────────────────────────────
+      - name: Build app
+        run: npm run ${{ matrix.build_cmd }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # ── 7. Lister dist-app pour debug ────────────────────────
+      - name: List dist-app contents
+        run: ls -lh dist-app/
+        shell: bash
+
+      # ── 8. Upload artifact pour la release ──────────────────
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: |
+            dist-app/*.exe
+            dist-app/*.AppImage
+          retention-days: 1
+
+  # ── Job release : crée la GitHub Release ────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: List artifacts
+        run: find artifacts/ -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          name: "Moyens Généraux ${{ github.ref_name || inputs.tag }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          body: |
+            ## 📦 Moyens Généraux ${{ github.ref_name || inputs.tag }}
+
+            ### ⬇️ Téléchargement
+
+            | Plateforme | Fichier |
+            |---|---|
+            | 🪟 Windows | `Moyens.Generaux.Setup.*.exe` |
+            | 🐧 Linux   | `Moyens.Generaux-*.AppImage` |
+
+            ### 🚀 Installation
+
+            **Windows :** Télécharge le `.exe` → double-clique → installe → lance depuis le Bureau
+
+            **Linux :**
+            ```bash
+            chmod +x Moyens.Generaux-*.AppImage
+            ./Moyens.Generaux-*.AppImage
+            ```
+
+            ### 🔐 Comptes par défaut
+
+            | Utilisateur | Mot de passe | Rôle |
+            |---|---|---|
+            | `admin` | `admin123` | Chef Moyens Généraux |
+            | `magasinier` | `mag123` | Magasinier |
+            | `comptable` | `cpt123` | Comptable |
+            | `agent` | `agt123` | Agent Administratif |
+
+            > ⚠️ Changez les mots de passe après la première connexion.
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
