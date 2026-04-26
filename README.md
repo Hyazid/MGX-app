@@ -11,7 +11,7 @@ Application desktop de gestion des bons de commande, stock et inventaire pour le
 
 ```bash
 # 1. Cloner le projet
-git clone https://github.com/TON_USERNAME/moyens-generaux-app.git
+git clone https://github.com/Hyazid/MGX-app.git
 cd moyens-generaux-app
 
 # 2. Installer les dépendances
