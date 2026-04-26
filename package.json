@@ -69,7 +69,6 @@
     "@hookform/resolvers": "^3.3.0",
     "@tanstack/react-table": "^8.10.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^9.4.0",
     "clsx": "^2.0.0",
     "date-fns": "^3.0.0",
     "jspdf": "^2.5.0",
