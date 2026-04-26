@@ -11,9 +11,7 @@
     "build:react":  "vite build",
     "build":        "npm run build:react && electron-builder --linux --win",
     "build:linux":  "npm run build:react && electron-builder --linux --publish never",
-    "build:win":    "npm run build:react && electron-builder --win --publish never",
-    "rebuild":      "electron-rebuild -f -w better-sqlite3",
-    "postinstall":  "electron-builder install-app-deps"
+    "build:win":    "npm run build:react && electron-builder --win --publish never"
   },
   "build": {
     "appId": "dz.entreprise.moyens-generaux",
@@ -30,9 +28,7 @@
     ],
     "extraResources": [],
     "asar": true,
-    "asarUnpack": [
-      "node_modules/better-sqlite3/**/*"
-    ],
+    "asarUnpack": [],
     "win": {
       "target": [
         { "target": "nsis", "arch": ["x64"] }

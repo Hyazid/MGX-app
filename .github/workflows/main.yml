@@ -23,27 +23,23 @@ jobs:
         include:
           - os: windows-latest
             build_cmd: build:win
-            artifact: '*.exe'
           - os: ubuntu-22.04
             build_cmd: build:linux
-            artifact: '*.AppImage'
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      # ── 1. Checkout ─────────────────────────────────────────
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ── 2. Node.js 18 ───────────────────────────────────────
       - name: Setup Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      # ── 3. Dépendances système Linux ────────────────────────
-      - name: Install Linux system dependencies
+      # Linux deps
+      - name: Install Linux system deps
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update -y
@@ -52,26 +48,18 @@ jobs:
             libxss1 libasound2 libxtst6 xvfb \
             libgconf-2-4 libgbm-dev
 
-      # ── 4. npm install ──────────────────────────────────────
       - name: Install dependencies
         run: npm ci
 
-      # ── 5. Rebuild better-sqlite3 pour Electron ─────────────
-      - name: Rebuild native modules
-        run: npm run rebuild
-
-      # ── 6. Build ────────────────────────────────────────────
       - name: Build app
         run: npm run ${{ matrix.build_cmd }}
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # ── 7. Lister dist-app pour debug ────────────────────────
-      - name: List dist-app contents
-        run: ls -lh dist-app/
+      - name: List dist-app
+        run: ls dist-app/
         shell: bash
 
-      # ── 8. Upload artifact pour la release ──────────────────
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -79,9 +67,8 @@ jobs:
           path: |
             dist-app/*.exe
             dist-app/*.AppImage
-          retention-days: 1
+          retention-days: 3
 
-  # ── Job release : crée la GitHub Release ────────────────────
   release:
     name: Create GitHub Release
     needs: build
@@ -105,7 +92,6 @@ jobs:
           name: "Moyens Généraux ${{ github.ref_name || inputs.tag }}"
           draft: false
           prerelease: false
-          generate_release_notes: false
           body: |
             ## 📦 Moyens Généraux ${{ github.ref_name || inputs.tag }}
 
