@@ -30,8 +30,23 @@ jobs:
       - name: Rebuild better-sqlite3 for Windows
         run: npx @electron/rebuild -f -w better-sqlite3
 
+      # Build React PUIS Electron sur le MÊME runner Windows
+      - name: Build React
+        run: npm run build:react
+
+      - name: Verify dist/index.html exists
+        run: |
+          if (Test-Path "dist/index.html") {
+            Write-Host "✅ dist/index.html found"
+            Get-ChildItem dist/ -Recurse | Select-Object FullName
+          } else {
+            Write-Host "❌ dist/index.html NOT FOUND"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Build Windows installer
-        run: npm run build:win
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
