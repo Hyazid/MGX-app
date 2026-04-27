@@ -38,7 +38,6 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      # Linux deps
       - name: Install Linux system deps
         if: runner.os == 'Linux'
         run: |
@@ -50,6 +49,10 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      # Rebuild better-sqlite3 pour la bonne plateforme
+      - name: Rebuild better-sqlite3
+        run: npx @electron/rebuild -f -w better-sqlite3
 
       - name: Build app
         run: npm run ${{ matrix.build_cmd }}
