@@ -1,5 +1,7 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol } = require('electron')
 const path = require('path')
+const fs   = require('fs')
+const url  = require('url')
 
 const isDev = !app.isPackaged
 
@@ -12,7 +14,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 600,
     backgroundColor: '#f9fafb',
-    show: true,   // affiche immédiatement — pas de ready-to-show
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -24,10 +26,8 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    const indexPath = path.join(app.getAppPath(), 'dist', 'index.html')
-    console.log('[APP] Loading:', indexPath)
-    mainWindow.loadFile(indexPath)
-    // Ouvre DevTools en prod pour voir les erreurs JS
+    // Charge via le protocol 'app://' qu'on a enregistré
+    mainWindow.loadURL('app://./index.html')
     mainWindow.webContents.openDevTools()
   }
 
@@ -36,7 +36,7 @@ function createWindow() {
   })
 
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('[APP] Page chargée OK')
+    console.log('[APP] ✅ Page chargée')
   })
 }
 
@@ -52,8 +52,19 @@ function safeRegister(modulePath) {
   }
 }
 
+// Enregistre le protocol AVANT app.whenReady()
 app.whenReady().then(() => {
-  // initDB est SYNCHRONE — pas de await
+
+  // ── Protocol 'app://' ────────────────────────────────────────
+  // Sert les fichiers depuis dist/ dans l'asar
+  protocol.registerFileProtocol('app', (request, callback) => {
+    const reqUrl = request.url.replace('app://./', '')
+    const filePath = path.join(app.getAppPath(), 'dist', reqUrl)
+    console.log('[PROTOCOL] Serving:', filePath)
+    callback({ path: filePath })
+  })
+
+  // ── DB ───────────────────────────────────────────────────────
   try {
     const { initDB } = require('./database/db')
     initDB()
@@ -63,6 +74,7 @@ app.whenReady().then(() => {
     console.error(e.stack)
   }
 
+  // ── IPC handlers ─────────────────────────────────────────────
   safeRegister('./database/queries/users')
   safeRegister('./database/queries/bda')
   safeRegister('./database/queries/bc')
