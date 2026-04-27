@@ -1,32 +1,18 @@
-name: Build & Release
+name: Build & Release Windows
 
 on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Version tag (ex: v1.0.0)'
-        required: true
-        default: 'v1.0.0'
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build — ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            build_cmd: build:win
-          - os: ubuntu-22.04
-            build_cmd: build:linux
-
-    runs-on: ${{ matrix.os }}
+  build-win:
+    name: Build Windows
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -38,51 +24,40 @@ jobs:
           node-version: '18'
           cache: 'npm'
 
-      - name: Install Linux system deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            libgtk-3-dev libnotify-dev libnss3 \
-            libxss1 libasound2 libxtst6 xvfb \
-            libgconf-2-4 libgbm-dev
-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      # Rebuild better-sqlite3 pour la bonne plateforme
-      - name: Rebuild better-sqlite3
+      - name: Rebuild better-sqlite3 for Windows
         run: npx @electron/rebuild -f -w better-sqlite3
 
-      - name: Build app
-        run: npm run ${{ matrix.build_cmd }}
+      - name: Build Windows installer
+        run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: List dist-app
-        run: ls dist-app/
-        shell: bash
+        run: dir dist-app
 
-      - name: Upload artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}
-          path: |
-            dist-app/*.exe
-            dist-app/*.AppImage
+          name: windows-installer
+          path: dist-app/*.exe
           retention-days: 3
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: build-win
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
+          name: windows-installer
           path: artifacts/
 
       - name: List artifacts
@@ -91,42 +66,25 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name || inputs.tag }}
-          name: "Moyens Généraux ${{ github.ref_name || inputs.tag }}"
+          tag_name: ${{ github.ref_name }}
+          name: "Moyens Généraux ${{ github.ref_name }}"
           draft: false
           prerelease: false
           body: |
-            ## 📦 Moyens Généraux ${{ github.ref_name || inputs.tag }}
+            ## 📦 Moyens Généraux ${{ github.ref_name }}
 
-            ### ⬇️ Téléchargement
-
-            | Plateforme | Fichier |
-            |---|---|
-            | 🪟 Windows | `Moyens.Generaux.Setup.*.exe` |
-            | 🐧 Linux   | `Moyens.Generaux-*.AppImage` |
-
-            ### 🚀 Installation
-
-            **Windows :** Télécharge le `.exe` → double-clique → installe → lance depuis le Bureau
-
-            **Linux :**
-            ```bash
-            chmod +x Moyens.Generaux-*.AppImage
-            ./Moyens.Generaux-*.AppImage
-            ```
+            ### ⬇️ Installation Windows
+            1. Télécharge `Moyens.Generaux.Setup.exe`
+            2. Double-clique et installe
+            3. Lance depuis le Bureau
 
             ### 🔐 Comptes par défaut
-
             | Utilisateur | Mot de passe | Rôle |
             |---|---|---|
             | `admin` | `admin123` | Chef Moyens Généraux |
             | `magasinier` | `mag123` | Magasinier |
             | `comptable` | `cpt123` | Comptable |
             | `agent` | `agt123` | Agent Administratif |
-
-            > ⚠️ Changez les mots de passe après la première connexion.
-          files: |
-            artifacts/**/*.exe
-            artifacts/**/*.AppImage
+          files: artifacts/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

@@ -1,11 +1,9 @@
 const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
-const fs   = require('fs')
 
 const isDev = !app.isPackaged
 
 let mainWindow
-let dbInitialized = false
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -14,27 +12,31 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 600,
     backgroundColor: '#f9fafb',
+    show: true,   // affiche immédiatement — pas de ready-to-show
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
-    show: false
   })
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    // app.getAppPath() retourne le bon chemin dans l'asar
     const indexPath = path.join(app.getAppPath(), 'dist', 'index.html')
+    console.log('[APP] Loading:', indexPath)
     mainWindow.loadFile(indexPath)
+    // Ouvre DevTools en prod pour voir les erreurs JS
+    mainWindow.webContents.openDevTools()
   }
 
-  mainWindow.once('ready-to-show', () => mainWindow.show())
+  mainWindow.webContents.on('did-fail-load', (_, code, desc, url) => {
+    console.error('[APP] did-fail-load:', code, desc, url)
+  })
 
-  mainWindow.webContents.on('did-fail-load', (_, code, desc) => {
-    console.error('did-fail-load:', code, desc)
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[APP] Page chargée OK')
   })
 }
 
@@ -46,23 +48,21 @@ function safeRegister(modulePath) {
       console.log(`[IPC] ✅ ${path.basename(modulePath)}`)
     }
   } catch (e) {
-    console.warn(`[IPC] ❌ ${path.basename(modulePath)}: ${e.message}`)
+    console.error(`[IPC] ❌ ${path.basename(modulePath)}: ${e.message}`)
   }
 }
 
-app.whenReady().then(async () => {
-  // initDB est maintenant async — on ATTEND qu'elle finisse
+app.whenReady().then(() => {
+  // initDB est SYNCHRONE — pas de await
   try {
     const { initDB } = require('./database/db')
-    await initDB()
-    dbInitialized = true
+    initDB()
     console.log('[DB] ✅ Initialisée')
   } catch (e) {
     console.error('[DB] ❌', e.message)
     console.error(e.stack)
   }
 
-  // Les handlers IPC sont enregistrés APRÈS que la DB soit prête
   safeRegister('./database/queries/users')
   safeRegister('./database/queries/bda')
   safeRegister('./database/queries/bc')
@@ -75,14 +75,11 @@ app.whenReady().then(async () => {
   safeRegister('./database/queries/rapports')
 
   createWindow()
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
 })
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
-})
+app.on('window-all-closed', () => app.quit())
 
-process.on('uncaughtException', e => console.error('uncaughtException:', e))
+process.on('uncaughtException', e => {
+  console.error('[CRASH]', e.message)
+  console.error(e.stack)
+})
